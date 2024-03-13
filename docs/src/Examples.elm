@@ -1343,4 +1343,3 @@ first : Id
 first =
   BarCharts__Gradient
 
-

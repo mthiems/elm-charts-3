@@ -14,41 +14,45 @@ import Internal.Helpers as Helpers
 
 {-| -}
 type alias Many x =
-  I.Rendered ( x, List x )
+  I.Rendered { items : ( x, List x ) }
 
 
 {-| -}
 getMembers : Many x -> List x
-getMembers (I.Rendered (x, xs) _) =
-  x :: xs
+getMembers (I.Rendered group_) =
+  group_.config.items |> \(x, xs) -> x :: xs
 
 
 {-| -}
 getMember : Many x -> x
-getMember (I.Rendered (x, xs) _) =
-  x
+getMember (I.Rendered group_) =
+  group_.config.items |> \(x, xs) -> x
 
 
 {-| -}
-generalize : Many (I.One data x) -> List (I.One data I.Any)
-generalize many =
-  List.map I.generalize (getMembers many)
+getGenerals : Many (I.One data x) -> List (I.One data I.Any)
+getGenerals group_ =
+  let generalize (I.Rendered item) =
+        I.generalize item.config.toAny (I.Rendered item)
+  in
+  List.map generalize (getMembers group_)
 
 
 {-| -}
 getDatas : Many (I.One data x) -> List data
-getDatas (I.Rendered (x, xs) _) =
-  I.getDatum x :: List.map I.getDatum xs
+getDatas (I.Rendered group_) =
+  group_.config.items |> \(x, xs) -> I.getDatum x :: List.map I.getDatum xs
 
 
 {-| -}
 getData : Many (I.One data x) -> data
-getData (I.Rendered (x, xs) _) =
-  I.getDatum x
+getData (I.Rendered group_) =
+  group_.config.items |> \(x, xs) -> I.getDatum x
 
 
 mapData : (a -> b) -> Many (I.One a x) -> Many (I.One b x)
-mapData func (I.Rendered (x, xs) _) =
+mapData func (I.Rendered group_) =
+  let ( x, xs ) = group_.config.items in
   toGroup (I.map func x) (List.map (I.map func) xs)
 
 
@@ -119,7 +123,7 @@ sameX =
   in
   Remodel fullVertialPosition <|
     groupingHelp
-      { shared = \config -> { x1 = config.x1, x2 = config.x2 }
+      { shared = \config -> { x1 = config.values.x1, x2 = config.values.x2 }
       , equality = \a b -> a.x1 == b.x1 && a.x2 == b.x2
       , edits = identity
       }
@@ -134,9 +138,9 @@ stacks =
   Remodel I.getPosition <|
     groupingHelp
       { shared = \config ->
-            { x1 = config.x1
-            , x2 = config.x2
-            , property = config.identification.stackIndex
+            { x1 = config.values.x1
+            , x2 = config.values.x2
+            , property = config.tooltipInfo.property
             }
       , equality = \a b -> a.x1 == b.x1 && a.x2 == b.x2 && a.property == b.property
       , edits = identity
@@ -152,10 +156,10 @@ bins =
   Remodel I.getPosition <|
     groupingHelp
       { shared = \config ->
-          { x1 = config.x1
-          , x2 = config.x2
-          , elIndex = config.identification.elementIndex
-          , dataIndex = config.identification.dataIndex
+          { x1 = config.values.x1
+          , x2 = config.values.x2
+          , elIndex = config.tooltipInfo.elIndex
+          , dataIndex = config.tooltipInfo.data
           }
       , equality = \a b -> a.x1 == b.x1 && a.x2 == b.x2 && a.elIndex == b.elIndex && a.dataIndex == b.dataIndex
       , edits = editLimits (\item pos -> { pos | x1 = I.getX1 item, x2 = I.getX2 item })
@@ -174,7 +178,7 @@ groupingHelp :
   -> List (I.Rendered x)
   -> List (Many (I.Rendered x))
 groupingHelp { shared, equality, edits } items =
-  let toShared (I.Rendered meta item) = shared meta
+  let toShared (I.Rendered item) = shared item.config
       toEquality aO bO = equality (toShared aO) (toShared bO)
       toNewGroup ( i, is ) = toGroup i is |> edits
   in
@@ -182,18 +186,19 @@ groupingHelp { shared, equality, edits } items =
 
 
 editLimits : (x -> Position -> Position) -> Many x -> Many x
-editLimits edit (I.Rendered ( x, xs ) rendering) =
-  I.Rendered ( x, xs ) { rendering | limits = edit x rendering.limits }
+editLimits edit (I.Rendered group_) =
+  I.Rendered { group_ | toLimits = \c -> c.items |> \(x, xs) -> group_.toLimits c |> edit x }
 
 
 toGroup : I.Rendered x -> List (I.Rendered x) -> Many (I.Rendered x)
 toGroup first rest =
-  let all = first :: rest in
-  I.Rendered ( first, rest )
-    { limits = Coord.foldPosition I.getLimits all
-    , toPosition = \plane -> Coord.foldPosition (I.getPosition plane) all
-    , render = \plane _ -> S.g [ SA.class "elm-charts__group" ] (List.map (I.render plane) all)
-    , tooltip = \c -> [ H.table [] (List.concatMap I.tooltip all) ]
+  let concatTuple ( x, xs ) = x :: xs in
+  I.Rendered
+    { config = { items = ( first, rest ) }
+    , toLimits = \c -> Coord.foldPosition I.getLimits (concatTuple c.items)
+    , toPosition = \p c -> Coord.foldPosition (I.getPosition p) (concatTuple c.items)
+    , toSvg = \p c _ -> S.g [ SA.class "elm-charts__group" ] (List.map (I.toSvg p) (concatTuple c.items))
+    , toHtml = \c -> [ H.table [] (List.concatMap I.toHtml (concatTuple c.items)) ]
     }
 
 

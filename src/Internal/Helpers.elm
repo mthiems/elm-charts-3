@@ -5,19 +5,14 @@ import Dict exposing (Dict)
 
 
 {-| -}
-type Attribute c =
-  Attribute (c -> c)
+type alias Attribute c =
+  c -> c
 
 
-apply : List (Attribute a) -> a -> a
-apply attrs default =
-  let apply_ (Attribute f) a = f a in
-  List.foldl apply_ default attrs
-
-
-noChange : Attribute x
-noChange =
-  Attribute identity 
+apply : List (a -> a) -> a -> a
+apply funcs default =
+  let apply_ f a = f a in
+  List.foldl apply_ default funcs
 
 
 withSurround : List a -> (Int -> Maybe a -> a -> Maybe a -> b) -> List b
@@ -30,13 +25,6 @@ withSurround all func =
   in
   fold 0 Nothing [] all
 
-
-withFirst : List a -> (a -> List a -> b) -> Maybe b 
-withFirst xs func =
-  case xs of 
-    x :: rest -> Just (func x rest)
-    [] -> Nothing
-    
 
 gatherWith : (a -> a -> Bool) -> List a -> List ( a, List a )
 gatherWith testFn list =

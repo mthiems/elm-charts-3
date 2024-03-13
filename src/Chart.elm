@@ -155,11 +155,11 @@ import Internal.Item as Item
 import Internal.Produce as Produce
 import Internal.Legend as Legend
 import Internal.Many as Many
-import Internal.Helpers as Helpers exposing (Attribute)
+import Internal.Helpers as Helpers
 import Internal.Svg as IS
 import Internal.Events as IE
 import Chart.Svg as CS
-import Chart.Attributes as CA 
+import Chart.Attributes as CA exposing (Attribute)
 import Chart.Events as CE
 import Chart.Item as CI
 
@@ -373,7 +373,7 @@ definePlane config elements =
           Indexed _ -> acc
           SeriesElement lims _ _ _ -> acc ++ lims
           BarsElement lims _ _ _ _ -> acc ++ lims
-          CustomElement item _ -> acc ++ [ Item.getLimits item ]
+          CustomElement _ _ -> acc
           AxisElement _ _ -> acc
           TicksElement _ _ -> acc
           TickElement _ _ _ -> acc
@@ -413,12 +413,12 @@ definePlane config elements =
       calcRange =
         case config.range of
           [] -> limits_.x
-          some -> Helpers.apply some limits_.x 
+          some -> List.foldl (\f b -> f b) limits_.x some
 
       calcDomain =
         case config.domain of
-          [] -> Helpers.apply [CA.lowest 0 CA.orLower] limits_.y
-          some -> Helpers.apply some limits_.y
+          [] -> CA.lowest 0 CA.orLower limits_.y
+          some -> List.foldl (\f b -> f b) limits_.y some
 
       unpadded =
         { x = calcRange
@@ -513,7 +513,7 @@ getTickValues plane items elements =
           Indexed _ -> acc
           SeriesElement _ _ _ _     -> acc
           BarsElement _ _ _ func _  -> func plane acc
-          CustomElement _ _         -> acc
+          CustomElement _ func      -> acc
           AxisElement func _        -> func plane acc
           TicksElement func _       -> func plane acc
           TickElement toC func _    -> func plane (toC plane) acc
@@ -639,7 +639,7 @@ tooltip : CI.Item a -> List (Attribute Tooltip) -> List (H.Attribute Never) -> L
 tooltip i edits attrs_ content =
   html <| \p ->
     let pos = Item.getLimits i
-        content_ = if content == [] then Item.tooltip i else content
+        content_ = if content == [] then Item.toHtml i else content
     in
     if IS.isWithinPlane p pos.x1 pos.y2 -- TODO
     then CS.tooltip p (Item.getPosition p i) edits attrs_ content_
@@ -705,7 +705,7 @@ xAxis edits =
         { ts | yAxis = config.pinned p.y :: ts.yAxis }
   in
   AxisElement addTickValues <| \p ->
-    let xLimit = Helpers.apply config.limits p.x in
+    let xLimit = List.foldl (\f x -> f x) p.x config.limits in
     S.g
       [ SA.class "elm-charts__x-axis" ]
       [ CS.line p
@@ -744,7 +744,7 @@ yAxis edits =
         { ts | xAxis = config.pinned p.x :: ts.xAxis }
   in
   AxisElement addTickValues <| \p ->
-    let yLimit = Helpers.apply config.limits p.y in
+    let yLimit = List.foldl (\f y -> f y) p.y config.limits in
     S.g
       [ SA.class "elm-charts__y-axis" ]
       [ CS.line p
@@ -831,7 +831,7 @@ xTicks edits =
           }
 
       toTicks p =
-        Helpers.apply config.limits p.x 
+        List.foldl (\f x -> f x) p.x config.limits
           |> generateValues config.amount config.generate Nothing
           |> List.map .value
 
@@ -872,7 +872,7 @@ yTicks edits =
           }
 
       toTicks p =
-        Helpers.apply config.limits p.y 
+        List.foldl (\f y -> f y) p.y config.limits
           |> generateValues config.amount config.generate Nothing
           |> List.map .value
 
@@ -999,7 +999,7 @@ xLabels edits =
           }
 
       toTicks p config =
-        Helpers.apply config.limits p.x
+        List.foldl (\f x -> f x) p.x config.limits
           |> generateValues config.amount config.generate config.format
 
       toTickValues p config ts =
@@ -1057,7 +1057,7 @@ yLabels edits =
           }
 
       toTicks p config =
-        Helpers.apply config.limits p.y 
+        List.foldl (\f y -> f y) p.y config.limits
           |> generateValues config.amount config.generate config.format
 
       toTickValues p config ts =
@@ -1459,7 +1459,7 @@ grid edits =
 
 -}
 type alias Property data inter deco =
-  P.Property data inter deco
+  P.Property data String inter deco
 
 
 {-| Specify the configuration of a bar. The first argument will determine the height of
@@ -1521,7 +1521,7 @@ Explore live examples for the following attributes:
 -}
 bar : (data -> Float) -> List (Attribute CS.Bar) -> Property data inter CS.Bar
 bar y =
-  P.notStacked (y >> Just) []
+  P.property (y >> Just) []
 
 
 {-| Same as `bar`, but allows for missing data.
@@ -1538,7 +1538,7 @@ bar y =
 -}
 barMaybe : (data -> Maybe Float) -> List (Attribute CS.Bar) -> Property data inter CS.Bar
 barMaybe y =
-  P.notStacked y []
+  P.property y []
 
 
 {-| Specify the configuration of a set of dots. The first argument will determine the y value of
@@ -1584,7 +1584,7 @@ Explore live examples for the following attributes:
 -}
 scatter : (data -> Float) -> List (Attribute CS.Dot) -> Property data inter CS.Dot
 scatter y =
-  P.notStacked (y >> Just) []
+  P.property (y >> Just) []
 
 
 {-| Same as `scatter`, but allows for missing data.
@@ -1601,7 +1601,7 @@ scatter y =
 -}
 scatterMaybe : (data -> Maybe Float) -> List (Attribute CS.Dot) -> Property data inter CS.Dot
 scatterMaybe y =
-  P.notStacked y []
+  P.property y []
 
 
 {-| Specify the configuration of a interpolated series (a line). The first argument will determine
@@ -1661,7 +1661,7 @@ Explore live examples for the following attributes:
 -}
 interpolated : (data -> Float) -> List (Attribute CS.Interpolation) -> List (Attribute CS.Dot) -> Property data CS.Interpolation CS.Dot
 interpolated y inter =
-  P.notStacked (y >> Just) ([ CA.linear ] ++ inter)
+  P.property (y >> Just) ([ CA.linear ] ++ inter)
 
 
 {-| Same as `interpolated`, but allows for missing data.
@@ -1681,7 +1681,7 @@ See live example of [missing data in line chart](https://www.elm-charts.org/docu
 -}
 interpolatedMaybe : (data -> Maybe Float) -> List (Attribute CS.Interpolation) -> List (Attribute CS.Dot) -> Property data CS.Interpolation CS.Dot
 interpolatedMaybe y inter =
-  P.notStacked y ([ CA.linear ] ++ inter)
+  P.property y ([ CA.linear ] ++ inter)
 
 
 {-| Name a bar, scatter, or interpolated series. This name will show up
@@ -1703,7 +1703,7 @@ See [live example](https://www.elm-charts.org/documentation/interactivity/change
 -}
 named : String -> Property data inter deco -> Property data inter deco
 named name =
-  P.name name
+  P.meta name
 
 
 {-| Easily format the value which shows up by default in your tooltip if you add one. You
@@ -1714,7 +1714,7 @@ See [live example](https://www.elm-charts.org/documentation/interactivity/change
 -}
 format : (Float -> String) -> Property data inter deco -> Property data inter deco
 format func =
-  P.tooltipText <| \v ->
+  P.format <| \v ->
     case v of
       Just v_ -> func v_
       Nothing -> "N/A"
@@ -1725,7 +1725,7 @@ format func =
 -}
 formatMaybe : (Maybe Float -> String) -> Property data inter deco -> Property data inter deco
 formatMaybe =
-  P.tooltipText
+  P.format
 
 
 {-| Change the style of your bars or dots based on the index of its data point
@@ -1747,7 +1747,7 @@ See [live example](https://www.elm-charts.org/documentation/scatter-charts/data-
 -}
 variation : (Int -> data -> List (Attribute deco)) -> Property data inter deco -> Property data inter deco
 variation func =
-  P.variation <| \ids datum -> func ids.dataIndex datum
+  P.variation <| \_ _ index _ datum -> func index datum
 
 
 {-| Change the style of your bars or dots based on whether it is a member
@@ -1771,11 +1771,13 @@ See [live example](https://www.elm-charts.org/documentation/interactivity/change
 -}
 amongst : List (CI.One data x) -> (data -> List (Attribute deco)) -> Property data inter deco -> Property data inter deco
 amongst inQuestion func =
-  P.variation <| \ids datum ->
+  P.variation <| \p s i meta d ->
     let check product =
-          if Item.getIdentification product == ids &&
-             Item.getDatum product == datum
-          then func datum else []
+          if Item.getPropertyIndex product == p &&
+             Item.getStackIndex product == s &&
+             Item.getDataIndex product == i &&
+             Item.getDatum product == d
+          then func d else []
     in
     List.concatMap check inQuestion
 
@@ -2245,7 +2247,7 @@ barsMap mapData edits properties data =
           Produce.toBarSeries index edits properties data
 
         generalized =
-          List.concatMap Many.generalize items
+          List.concatMap Many.getGenerals items
             |> List.map (Item.map mapData)
 
         bins =
@@ -2266,9 +2268,9 @@ barsMap mapData edits properties data =
           List.map Item.getLimits bins
     in
     ( BarsElement toLimits generalized legends_ toTicks <| \plane ->
-        S.g [ SA.class "elm-charts__bar-series" ] (List.map (Item.render plane) items)
+        S.g [ SA.class "elm-charts__bar-series" ] (List.map (Item.toSvg plane) items)
           |> S.map never
-    , index + List.length items
+    , index + List.length (List.concatMap P.toConfigs properties)
     )
 
 
@@ -2334,7 +2336,7 @@ seriesMap mapData toX properties data =
           Produce.toDotSeries index toX properties data
 
         generalized =
-          List.concatMap Many.generalize items
+          List.concatMap Many.getGenerals items
             |> List.map (Item.map mapData)
 
         legends_ =
@@ -2344,9 +2346,9 @@ seriesMap mapData toX properties data =
           List.map Item.getLimits items
     in
     ( SeriesElement toLimits generalized legends_ <| \p ->
-        S.g [ SA.class "elm-charts__dot-series" ] (List.map (Item.render p) items)
+        S.g [ SA.class "elm-charts__dot-series" ] (List.map (Item.toSvg p) items)
           |> S.map never
-    , index + List.length items
+    , index + List.length (List.concatMap P.toConfigs properties)
     )
 
 
@@ -2381,32 +2383,37 @@ custom config =
   Indexed <| \elIndex ->
     let item =
           Item.Rendered
-            { presentation = ()
-            , color = config.color
-            , datum = config.data
-            , x1 = config.position.x1
-            , x2 = config.position.x2
-            , y = config.position.y2
-            , isReal = True
-            , identification =
-                { stackIndex = -1
-                , seriesIndex = -1
-                , dataIndex = -1
-                , absoluteIndex = -1
-                , elementIndex = elIndex
+            { config =
+                { product = ()
+                , values =
+                    { datum = config.data
+                    , x1 = config.position.x1
+                    , x2 = config.position.x2
+                    , y = config.position.y2
+                    , isReal = True
+                    }
+                , tooltipInfo =
+                    { property = 0
+                    , stack = 0
+                    , data = 0
+                    , index = 0
+                    , elIndex = elIndex
+                    , name = Just config.name
+                    , color = config.color
+                    , border = config.color
+                    , borderWidth = 0
+                    , formatted = config.format config.data
+                    }
+                , toAny = always Item.Custom
                 }
-            , name = Just config.name
-            , tooltipText = config.format config.data
-            , toAny = always Item.Custom
-            }
-            { limits = config.position
-            , toPosition = \_ -> config.position
-            , render = \plane position -> config.render plane
-            , tooltip = \() -> [ Produce.tooltipRow config.color config.name (config.format config.data) ]
+            , toLimits = \_ -> config.position
+            , toPosition = \_ _ -> config.position
+            , toSvg = \plane _ position -> config.render plane
+            , toHtml = \c -> [ Produce.tooltipRow c.tooltipInfo.color (Maybe.withDefault "Custom" c.tooltipInfo.name) (c.tooltipInfo.formatted) ]
             }
     in
-    ( CustomElement (Item.generalize item) <| \p ->
-        S.map never (Item.render p item)
+    ( CustomElement (Item.getGeneral item) <| \p ->
+        S.map never (Item.toSvg p item)
     , elIndex + 1
     )
 
@@ -2697,7 +2704,7 @@ See [live example](https://www.elm-charts.org/documentation/navigation/custom-la
 generate : Int -> CS.Generator a -> (C.Plane -> C.Axis) -> List (Attribute C.Axis) -> (C.Plane -> a -> List (Element data msg)) -> Element data msg
 generate num gen limit attrs func =
   SubElements <| \p _ ->
-    let items = CS.generate num gen (Helpers.apply attrs (limit p)) in
+    let items = CS.generate num gen (List.foldl (\f x -> f x) (limit p) attrs) in
     List.concatMap (func p) items
 
 

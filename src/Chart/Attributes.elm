@@ -54,8 +54,6 @@ module Chart.Attributes exposing
   , pink, purple, blue, green, orange, turquoise, red
   , magenta, brown, mint, yellow, gray
   , darkYellow, darkBlue, darkGray, labelGray
-
-  , noChange
   )
 
 
@@ -122,21 +120,18 @@ below are only guiding.
 @docs darkYellow, darkBlue, darkGray, labelGray
 
 
-## Conditional helpers
-@docs noChange
-
 -}
 
 
 import Time
 import Internal.Coordinates as C
-import Internal.Helpers as Helpers exposing (Attribute(..))
+import Internal.Helpers as Helpers
 import Internal.Svg as CS
 
 
 {-| -}
-type alias Attribute x =
-  Helpers.Attribute x
+type alias Attribute c =
+  c -> c
 
 
 {-| Change the lower bound of an axis.
@@ -155,24 +150,24 @@ where
 
 -}
 lowest : Float -> (Float -> Float -> Float -> Float) -> Attribute C.Axis
-lowest v edit =
-  Attribute <| \b -> { b | min = edit v b.min b.dataMin }
+lowest v edit b =
+  { b | min = edit v b.min b.dataMin }
 
 
 {-| Same as `lowest`, but changes upper bound.
 
 -}
 highest : Float -> (Float -> Float -> Float -> Float) -> Attribute C.Axis
-highest v edit =
-  Attribute <| \b -> { b | max = edit v b.max b.dataMax }
+highest v edit b =
+  { b | max = edit v b.max b.dataMax }
 
 
 {-| Resets axis to fit data bounds.
 
 -}
 likeData : Attribute C.Axis
-likeData =
-  Attribute <| \b -> { b | min = b.dataMin, max = b.dataMax }
+likeData b =
+  { b | min = b.dataMin, max = b.dataMax }
 
 
 {-| Set an axis to an exact window.
@@ -187,9 +182,8 @@ where
 
 -}
 window : Float -> Float -> Attribute C.Axis
-window min_ max_ =
-  Attribute <| \b -> 
-    { b | min = min_, max = max_ }
+window min_ max_ b =
+  { b | min = min_, max = max_ }
 
 
 {-| See `lowest` for usage examples.
@@ -238,13 +232,12 @@ less v o _ =
 
 -}
 zoom : Float -> Attribute C.Axis
-zoom per =
-  Attribute <| \axis ->
-    let full = axis.max - axis.min
-        zoomedFull = full / (max 1 per / 100)
-        off = (full - zoomedFull) / 2
-    in
-    { axis | min = axis.min + off, max = axis.max - off }
+zoom per axis =
+  let full = axis.max - axis.min
+      zoomedFull = full / (max 1 per / 100)
+      off = (full - zoomedFull) / 2
+  in
+  { axis | min = axis.min + off, max = axis.max - off }
 
 
 {-| Offset entire range.
@@ -259,8 +252,8 @@ where
 
 -}
 move : Float -> Attribute C.Axis
-move v =
-  Attribute <| \axis -> { axis | min = axis.min + v, max = axis.max + v }
+move v axis =
+  { axis | min = axis.min + v, max = axis.max + v }
 
 
 {-| Add padding (in px) to range/domain.
@@ -269,10 +262,9 @@ move v =
 
 -}
 pad : Float -> Float -> Attribute C.Axis
-pad minPad maxPad =
-  Attribute <| \axis -> 
-    let scale = C.scaleCartesian axis in
-    { axis | min = axis.min - scale minPad, max = axis.max + scale maxPad }
+pad minPad maxPad axis =
+  let scale = C.scaleCartesian axis in
+  { axis | min = axis.min - scale minPad, max = axis.max + scale maxPad }
 
 
 {-| Center range/domain at certain point.
@@ -287,10 +279,9 @@ where
 
 -}
 centerAt : Float -> Attribute C.Axis
-centerAt v =
-  Attribute <| \axis ->
-    let full = axis.max - axis.min in
-    { axis | min = v - full / 2, max = v + full / 2 }
+centerAt v axis =
+  let full = axis.max - axis.min in
+  { axis | min = v - full / 2, max = v + full / 2 }
 
 
 {-| Given an axis, find the value within it closest to zero.
@@ -323,436 +314,374 @@ percent per b =
 
 {-| -}
 amount : Int -> Attribute { a | amount : Int }
-amount value =
-  Attribute <| \config ->
-    { config | amount = value }
+amount value config =
+  { config | amount = value }
 
 
 {-| -}
 title : x -> Attribute { a | title : x }
-title value =
-  Attribute <| \config ->
-    { config | title = value }
+title value config =
+  { config | title = value }
 
 
 {-| -}
 ints : Attribute { a | generate : CS.TickType }
-ints =
-  Attribute <| \config ->
-    { config | generate = CS.Ints }
+ints config =
+  { config | generate = CS.Ints }
 
 
 {-| -}
 times : Time.Zone -> Attribute { a | generate : CS.TickType }
-times zone =
-  Attribute <| \config ->
-    { config | generate = CS.Times zone }
+times zone config =
+  { config | generate = CS.Times zone }
 
 
 {-| -}
 limits : x -> Attribute { a | limits : x }
-limits value =
-  Attribute <| \config ->
-    { config | limits = value }
+limits value config =
+  { config | limits = value }
 
 
 {-| -}
 range : x -> Attribute { a | range : x }
-range v =
-  Attribute <| \config ->
-    { config | range = v }
+range v config =
+  { config | range = v }
 
 
 {-| -}
 domain : x -> Attribute { a | domain : x }
-domain v =
-  Attribute <| \config ->
-    { config | domain = v }
+domain v config =
+  { config | domain = v }
 
 
 {-| -}
 padding : x -> Attribute { a | padding : x }
-padding value =
-  Attribute <| \config ->
-    { config | padding = value }
+padding value config =
+  { config | padding = value }
 
 
 {-| -}
 pinned : x -> Attribute { a | pinned : x }
-pinned value =
-  Attribute <| \config ->
-    { config | pinned = value }
+pinned value config =
+  { config | pinned = value }
 
 
 {-| -}
 dotGrid : Attribute { a | dotGrid : Bool }
-dotGrid =
-  Attribute <| \config ->
-    { config | dotGrid = True }
+dotGrid config =
+  { config | dotGrid = True }
 
 
 {-| -}
 noArrow : Attribute { a | arrow : Bool }
-noArrow =
-  Attribute <| \config ->
-    { config | arrow = False }
+noArrow config =
+  { config | arrow = False }
 
 
 {-| -}
 noGrid : Attribute { a | grid : Bool }
-noGrid =
-  Attribute <| \config ->
-    { config | grid = False }
+noGrid config =
+  { config | grid = False }
 
 
 {-| -}
 withGrid : Attribute { a | grid : Bool }
-withGrid =
-  Attribute <| \config ->
-    { config | grid = True }
+withGrid config =
+  { config | grid = True }
 
 
 {-| -}
 x : Float -> Attribute { a | x : Float }
-x v =
-  Attribute <| \config ->
-    { config | x = v }
+x v config =
+  { config | x = v }
 
 
 {-| -}
 x1 : x -> Attribute { a | x1 : Maybe x }
-x1 v =
-  Attribute <| \config ->
-    { config | x1 = Just v }
+x1 v config =
+  { config | x1 = Just v }
 
 
 {-| -}
 x2 : x -> Attribute { a | x2 : Maybe x }
-x2 v =
-  Attribute <| \config ->
-    { config | x2 = Just v }
+x2 v config =
+  { config | x2 = Just v }
 
 
 {-| -}
 x2Svg : x -> Attribute { a | x2Svg : Maybe x }
-x2Svg v =
-  Attribute <| \config ->
-    { config | x2Svg = Just v }
+x2Svg v config =
+  { config | x2Svg = Just v }
 
 
 {-| -}
 y : Float -> Attribute { a | y : Float }
-y v =
-  Attribute <| \config ->
-    { config | y = v }
+y v config =
+  { config | y = v }
 
 
 {-| -}
 y1 : Float -> Attribute { a | y1 : Maybe Float }
-y1 v =
-  Attribute <| \config ->
-    { config | y1 = Just v }
+y1 v config =
+  { config | y1 = Just v }
 
 
 {-| -}
 y2 : Float -> Attribute { a | y2 : Maybe Float }
-y2 v =
-  Attribute <| \config ->
-    { config | y2 = Just v }
+y2 v config =
+  { config | y2 = Just v }
 
 
 {-| -}
 y2Svg : x -> Attribute { a | y2Svg : Maybe x }
-y2Svg v =
-  Attribute <| \config ->
-    { config | y2Svg = Just v }
+y2Svg v config =
+  { config | y2Svg = Just v }
 
 
 {-| -}
 break : Attribute { a | break : Bool }
-break =
-  Attribute <| \config ->
-    { config | break = True }
+break config =
+  { config | break = True }
 
 
 {-| -}
 tickLength : Float -> Attribute { a | tickLength : Float }
-tickLength v =
-  Attribute <| \config ->
-    { config | tickLength = v }
+tickLength v config =
+  { config | tickLength = v }
 
 
 {-| -}
 tickDirection : Float -> Attribute { a | tickDirection : Float }
-tickDirection v =
-  Attribute <| \config ->
-    { config | tickDirection = v }
+tickDirection v config =
+  { config | tickDirection = v }
 
 
 {-| -}
 moveLeft : Float -> Attribute { a | xOff : Float }
-moveLeft v =
-  Attribute <| \config ->
-    { config | xOff = config.xOff - v }
+moveLeft v config =
+  { config | xOff = config.xOff - v }
 
 
 {-| -}
 moveRight : Float -> Attribute { a | xOff : Float }
-moveRight v =
-  Attribute <| \config ->
-    { config | xOff = config.xOff + v }
+moveRight v config =
+  { config | xOff = config.xOff + v }
 
 
 {-| -}
 moveUp : Float -> Attribute { a | yOff : Float }
-moveUp v =
-  Attribute <| \config ->
-    { config | yOff = config.yOff - v }
+moveUp v config =
+  { config | yOff = config.yOff - v }
 
 
 {-| -}
 moveDown : Float -> Attribute { a | yOff : Float }
-moveDown v =
-  Attribute <| \config ->
-    { config | yOff = config.yOff + v }
+moveDown v config =
+  { config | yOff = config.yOff + v }
 
 
 {-| -}
 hideOverflow : Attribute { a | hideOverflow : Bool }
-hideOverflow =
-  Attribute <| \config ->
-    { config | hideOverflow = True }
+hideOverflow config =
+  { config | hideOverflow = True }
 
 
 {-| -}
 xOff : Float -> Attribute { a | xOff : Float }
-xOff v =
-  Attribute <| \config ->
-    { config | xOff = config.xOff + v }
+xOff v config =
+  { config | xOff = config.xOff + v }
 
 
 {-| -}
 yOff : Float -> Attribute { a | yOff : Float }
-yOff v =
-  Attribute <| \config ->
-    { config | yOff = config.yOff + v }
+yOff v config =
+  { config | yOff = config.yOff + v }
 
 
 {-| -}
 flip : Attribute { a | flip : Bool }
-flip =
-  Attribute <| \config ->
-    { config | flip = True }
+flip config =
+  { config | flip = True }
 
 
 {-| -}
 border : String -> Attribute { a | border : String }
-border v =
-  Attribute <| \config ->
-    { config | border = v }
+border v config =
+  { config | border = v }
 
 
 {-| -}
 borderWidth : Float -> Attribute { a | borderWidth : Float }
-borderWidth v =
-  Attribute <| \config ->
-    { config | borderWidth = v }
+borderWidth v config =
+  { config | borderWidth = v }
 
 
 {-| -}
 background : String -> Attribute { a | background : String }
-background v =
-  Attribute <| \config ->
-    { config | background = v }
+background v config =
+  { config | background = v }
 
 
 {-| -}
 fontSize : Int -> Attribute { a | fontSize : Maybe Int }
-fontSize v =
-  Attribute <| \config ->
-    { config | fontSize = Just v }
+fontSize v config =
+  { config | fontSize = Just v }
 
 
 {-| -}
 uppercase : Attribute { a | uppercase : Bool }
-uppercase =
-  Attribute <| \config ->
-    { config | uppercase = True }
+uppercase config =
+  { config | uppercase = True }
 
 
 {-| -}
 format : x -> Attribute { a | format : Maybe x }
-format v =
-  Attribute <| \config ->
-    { config | format = Just v }
+format v config =
+  { config | format = Just v }
 
 
 {-| Note: There is no SVG feature for ellipsis, so this turns labels into HTML. -}
 ellipsis : Float -> Float -> Attribute { a | ellipsis : Maybe { height : Float, width : Float } }
-ellipsis w h =
-  Attribute <| \config ->
-    { config | ellipsis = Just { width = w, height = h } }
+ellipsis w h config =
+  { config | ellipsis = Just { width = w, height = h } }
 
 
 {-| -}
 position : x -> Attribute { a | position : x }
-position v =
-  Attribute <| \config ->
-    { config | position = v }
+position v config =
+  { config | position = v }
 
 
 {-| -}
 color : String -> Attribute { a | color : String }
-color v =
-  Attribute <| \config ->
-    if v == "" then config else { config | color = v }
+color v config =
+  if v == "" then config else { config | color = v }
 
 
 {-| -}
 opacity : Float -> Attribute { a | opacity : Float }
-opacity v =
-  Attribute <| \config ->
-    { config | opacity = v }
+opacity v config =
+  { config | opacity = v }
 
 
 {-| -}
 highlight : Float -> Attribute { a | highlight : Float }
-highlight v =
-  Attribute <| \config ->
-    { config | highlight = v }
+highlight v config =
+  { config | highlight = v }
 
 
 {-| -}
 highlightWidth : Float -> Attribute { a | highlightWidth : Float }
-highlightWidth v =
-  Attribute <| \config ->
-    { config | highlightWidth = v }
+highlightWidth v config =
+  { config | highlightWidth = v }
 
 
 {-| -}
 highlightColor : String -> Attribute { a | highlightColor : String }
-highlightColor v =
-  Attribute <| \config ->
-    { config | highlightColor = v }
+highlightColor v config =
+  { config | highlightColor = v }
 
 
 {-| -}
 size : Float -> Attribute { a | size : Float }
-size v =
-  Attribute <| \config ->
-    { config | size = v }
+size v config =
+  { config | size = v }
 
 
 {-| -}
 width : Float -> Attribute { a | width : Float }
-width v =
-  Attribute <| \config ->
-    { config | width = v }
+width v config =
+  { config | width = v }
 
 
 {-| -}
 height : Float -> Attribute { a | height : Float }
-height v =
-  Attribute <| \config ->
-    { config | height = v }
+height v config =
+  { config | height = v }
 
 
 {-| -}
 attrs : a -> Attribute { x | attrs : a }
-attrs v =
-  Attribute <| \config ->
-    { config | attrs = v }
+attrs v config =
+  { config | attrs = v }
 
 
 {-| -}
 htmlAttrs : a -> Attribute { x | htmlAttrs : a }
-htmlAttrs v =
-  Attribute <| \config ->
-    { config | htmlAttrs = v }
+htmlAttrs v config =
+  { config | htmlAttrs = v }
 
 
 {-| -}
 length : Float -> Attribute { a | length : Float }
-length v =
-  Attribute <| \config ->
-    { config | length = v }
+length v config =
+  { config | length = v }
 
 
 {-| -}
 offset : Float -> Attribute { a | offset : Float }
-offset v =
-  Attribute <| \config ->
-    { config | offset = v }
+offset v config =
+  { config | offset = v }
 
 
 {-| -}
 rotate : Float -> Attribute { a | rotate : Float }
-rotate v =
-  Attribute <| \config ->
-    { config | rotate = config.rotate + v }
+rotate v config =
+  { config | rotate = config.rotate + v }
 
 
 {-| -}
 margin : x -> Attribute { a | margin : x }
-margin v =
-  Attribute <| \config ->
-    { config | margin = v }
+margin v config =
+  { config | margin = v }
 
 
 {-| -}
 spacing : Float -> Attribute { a | spacing : Float }
-spacing v =
-  Attribute <| \config ->
-    { config | spacing = v }
+spacing v config =
+  { config | spacing = v }
 
 
 {-| -}
 roundTop : Float -> Attribute { a | roundTop : Float }
-roundTop v =
-  Attribute <| \config ->
-    { config | roundTop = v }
+roundTop v config =
+  { config | roundTop = v }
 
 
 {-| -}
 roundBottom : Float -> Attribute { a | roundBottom : Float }
-roundBottom v =
-  Attribute <| \config ->
-    { config | roundBottom = v }
+roundBottom v config =
+  { config | roundBottom = v }
 
 
 {-| -}
 ungroup : Attribute { a | grouped : Bool }
-ungroup =
-  Attribute <| \config ->
-    { config | grouped = False }
+ungroup config =
+  { config | grouped = False }
 
 
 {-| -}
 events : x -> Attribute { a | events : x }
-events v =
-  Attribute <| \config ->
-    { config | events = v }
+events v config =
+  { config | events = v }
 
 
 {-| -}
 alignLeft : Attribute { a | anchor : Maybe CS.Anchor }
-alignLeft =
-  Attribute <| \config ->
-    { config | anchor = Just CS.Start }
+alignLeft config =
+  { config | anchor = Just CS.Start }
 
 
 {-| -}
 alignRight : Attribute { a | anchor : Maybe CS.Anchor }
-alignRight =
-  Attribute <| \config ->
-    { config | anchor = Just CS.End }
+alignRight config =
+  { config | anchor = Just CS.End }
 
 
 {-| -}
 alignMiddle : Attribute { a | anchor : Maybe CS.Anchor }
-alignMiddle =
-  Attribute <| \config ->
-    { config | anchor = Just CS.Middle }
+alignMiddle config =
+  { config | anchor = Just CS.Middle }
 
 
 
@@ -761,128 +690,110 @@ alignMiddle =
 
 {-| -}
 top : Attribute { a | focal : Maybe (C.Position -> C.Position) }
-top =
-  Attribute <| \config ->
-    { config | focal = Just (\pos -> { pos | y1 = pos.y2 }) }
+top config =
+  { config | focal = Just (\pos -> { pos | y1 = pos.y2 }) }
 
 
 {-| -}
 bottom : Attribute { a | focal : Maybe (C.Position -> C.Position) }
-bottom =
-  Attribute <| \config ->
-    { config | focal = Just (\pos -> { pos | y2 = pos.y1 }) }
+bottom config =
+  { config | focal = Just (\pos -> { pos | y2 = pos.y1 }) }
 
 
 {-| -}
 left : Attribute { a | focal : Maybe (C.Position -> C.Position) }
-left =
-  Attribute <| \config ->
-    { config | focal = Just (\pos -> { pos | x2 = pos.x1 }) }
+left config =
+  { config | focal = Just (\pos -> { pos | x2 = pos.x1 }) }
 
 
 {-| -}
 right : Attribute { a | focal : Maybe (C.Position -> C.Position) }
-right =
-  Attribute <| \config ->
-    { config | focal = Just (\pos -> { pos | x1 = pos.x2 }) }
+right config =
+  { config | focal = Just (\pos -> { pos | x1 = pos.x2 }) }
 
 
 {-| -}
 topCenter : Attribute { a | focal : Maybe (C.Position -> C.Position) }
-topCenter =
-  Attribute <| \config ->
-    { config | focal = Just (C.top >> C.pointToPosition) }
+topCenter config =
+  { config | focal = Just (C.top >> C.pointToPosition) }
 
 
 {-| -}
 bottomCenter : Attribute { a | focal : Maybe (C.Position -> C.Position) }
-bottomCenter =
-  Attribute <| \config ->
-    { config | focal = Just (C.bottom >> C.pointToPosition) }
+bottomCenter config =
+  { config | focal = Just (C.bottom >> C.pointToPosition) }
 
 
 {-| -}
 leftCenter : Attribute { a | focal : Maybe (C.Position -> C.Position) }
-leftCenter =
-  Attribute <| \config ->
-    { config | focal = Just (C.left >> C.pointToPosition) }
+leftCenter config =
+  { config | focal = Just (C.left >> C.pointToPosition) }
 
 
 {-| -}
 rightCenter : Attribute { a | focal : Maybe (C.Position -> C.Position) }
-rightCenter =
-  Attribute <| \config ->
-    { config | focal = Just (C.right >> C.pointToPosition) }
+rightCenter config =
+  { config | focal = Just (C.right >> C.pointToPosition) }
 
 
 {-| -}
 topLeft : Attribute { a | focal : Maybe (C.Position -> C.Position) }
-topLeft =
-  Attribute <| \config ->
-    { config | focal = Just (C.topLeft >> C.pointToPosition) }
+topLeft config =
+  { config | focal = Just (C.topLeft >> C.pointToPosition) }
 
 
 {-| -}
 topRight : Attribute { a | focal : Maybe (C.Position -> C.Position) }
-topRight =
-  Attribute <| \config ->
-    { config | focal = Just (C.topRight >> C.pointToPosition) }
+topRight config =
+  { config | focal = Just (C.topRight >> C.pointToPosition) }
 
 
 {-| -}
 bottomLeft : Attribute { a | focal : Maybe (C.Position -> C.Position) }
-bottomLeft =
-  Attribute <| \config ->
-    { config | focal = Just (C.bottomLeft >> C.pointToPosition) }
+bottomLeft config =
+  { config | focal = Just (C.bottomLeft >> C.pointToPosition) }
 
 
 {-| -}
 bottomRight : Attribute { a | focal : Maybe (C.Position -> C.Position) }
-bottomRight =
-  Attribute <| \config ->
-    { config | focal = Just (C.bottomRight >> C.pointToPosition) }
+bottomRight config =
+  { config | focal = Just (C.bottomRight >> C.pointToPosition) }
 
 
 {-| -}
 center : Attribute { a | focal : Maybe (C.Position -> C.Position) }
-center =
-  Attribute <| \config ->
-    { config | focal = Just (C.center >> C.pointToPosition) }
+center config =
+  { config | focal = Just (C.center >> C.pointToPosition) }
 
 
 {-| -}
 focal : (C.Position -> C.Position) -> Attribute { a | focal : Maybe (C.Position -> C.Position) }
-focal given =
-  Attribute <| \config ->
-    { config | focal = Just given }
+focal given config =
+  { config | focal = Just given }
 
 
 {-| -}
 linear : Attribute { a | method : Maybe CS.Method }
-linear =
-  Attribute <| \config ->
-    { config | method = Just CS.Linear }
+linear config =
+  { config | method = Just CS.Linear }
 
 
 {-| -}
 monotone : Attribute { a | method : Maybe CS.Method }
-monotone =
-  Attribute <| \config ->
-    { config | method = Just CS.Monotone }
+monotone config =
+  { config | method = Just CS.Monotone }
 
 
 {-| -}
 stepped : Attribute { a | method : Maybe CS.Method }
-stepped =
-  Attribute <| \config ->
-    { config | method = Just CS.Stepped }
+stepped config =
+  { config | method = Just CS.Stepped }
 
 
 {-| -}
 area : Float -> Attribute { a | area : Float, method : Maybe CS.Method }
-area v =
-  Attribute <| \config ->
-    { config | area = v
+area v config =
+  { config | area = v
   , method =
       case config.method of
         Just _ -> config.method
@@ -892,134 +803,110 @@ area v =
 
 {-| -}
 striped : List (Attribute CS.Pattern) -> Attribute { a | design : Maybe CS.Design, opacity : Float }
-striped attrs_ =
-  Attribute <| \config ->
-    { config | design = Just (CS.Striped attrs_), opacity = if config.opacity == 0 then 1 else config.opacity }
+striped attrs_ config =
+  { config | design = Just (CS.Striped attrs_), opacity = if config.opacity == 0 then 1 else config.opacity }
 
 
 {-| -}
 dotted : List (Attribute CS.Pattern) -> Attribute { a | design : Maybe CS.Design, opacity : Float }
-dotted attrs_ =
-  Attribute <| \config ->
-    { config | design = Just (CS.Dotted attrs_), opacity = if config.opacity == 0 then 1 else config.opacity }
+dotted attrs_ config =
+  { config | design = Just (CS.Dotted attrs_), opacity = if config.opacity == 0 then 1 else config.opacity }
 
 
 {-| -}
 gradient : List String -> Attribute { a | design : Maybe CS.Design, opacity : Float }
-gradient colors =
-  Attribute <| \config ->
-    { config | design = Just (CS.Gradient colors), opacity = if config.opacity == 0 then 1 else config.opacity }
+gradient colors config =
+  { config | design = Just (CS.Gradient colors), opacity = if config.opacity == 0 then 1 else config.opacity }
 
 
 {-| -}
 dashed : x -> Attribute { a | dashed : x }
-dashed value =
-  Attribute <| \config ->
-    { config | dashed = value }
+dashed value config =
+  { config | dashed = value }
 
 
 {-| -}
 circle : Attribute { a | shape : Maybe CS.Shape }
-circle =
-  Attribute <| \config ->
-    { config | shape = Just CS.Circle }
+circle config =
+  { config | shape = Just CS.Circle }
 
 
 {-| -}
 triangle : Attribute { a | shape : Maybe CS.Shape }
-triangle =
-  Attribute <| \config ->
-    { config | shape = Just CS.Triangle }
+triangle config =
+  { config | shape = Just CS.Triangle }
 
 
 {-| -}
 square : Attribute { a | shape : Maybe CS.Shape }
-square =
-  Attribute <| \config ->
-    { config | shape = Just CS.Square }
+square config =
+  { config | shape = Just CS.Square }
 
 
 {-| -}
 diamond : Attribute { a | shape : Maybe CS.Shape }
-diamond =
-  Attribute <| \config ->
-    { config | shape = Just CS.Diamond }
+diamond config =
+  { config | shape = Just CS.Diamond }
 
 
 {-| -}
 plus : Attribute { a | shape : Maybe CS.Shape }
-plus =
-  Attribute <| \config ->
-    { config | shape = Just CS.Plus }
+plus config =
+  { config | shape = Just CS.Plus }
 
 
 {-| -}
 cross : Attribute { a | shape : Maybe CS.Shape }
-cross =
-  Attribute <| \config ->
-    { config | shape = Just CS.Cross }
+cross config =
+  { config | shape = Just CS.Cross }
 
 
 {-| -}
 onTop : Attribute { a | direction : Maybe CS.Direction }
-onTop =
-  Attribute <| \config ->
-    { config | direction = Just CS.Top }
+onTop config =
+  { config | direction = Just CS.Top }
 
 
 {-| -}
 onBottom : Attribute { a | direction : Maybe CS.Direction }
-onBottom =
-  Attribute <| \config ->
-    { config | direction = Just CS.Bottom }
+onBottom config =
+  { config | direction = Just CS.Bottom }
 
 
 {-| -}
 onRight : Attribute { a | direction : Maybe CS.Direction }
-onRight =
-  Attribute <| \config ->
-    { config | direction = Just CS.Right }
+onRight config =
+  { config | direction = Just CS.Right }
 
 
 {-| -}
 onLeft : Attribute { a | direction : Maybe CS.Direction }
-onLeft =
-  Attribute <| \config ->
-    { config | direction = Just CS.Left }
+onLeft config =
+  { config | direction = Just CS.Left }
 
 
 {-| -}
 onLeftOrRight : Attribute { a | direction : Maybe CS.Direction }
-onLeftOrRight =
-  Attribute <| \config ->
-    { config | direction = Just CS.LeftOrRight }
+onLeftOrRight config =
+  { config | direction = Just CS.LeftOrRight }
 
 
 {-| -}
 onTopOrBottom : Attribute { a | direction : Maybe CS.Direction }
-onTopOrBottom =
-  Attribute <| \config ->
-    { config | direction = Just CS.TopOrBottom }
+onTopOrBottom config =
+  { config | direction = Just CS.TopOrBottom }
 
 
 {-| -}
 row : Attribute { a | alignment : CS.Alignment }
-row =
-  Attribute <| \config ->
-    { config | alignment = CS.Row }
+row config =
+  { config | alignment = CS.Row }
 
 
 {-| -}
 column : Attribute { a | alignment : CS.Alignment }
-column =
-  Attribute <| \config ->
-    { config | alignment = CS.Column }
-
-
-{-| -}
-noChange : Attribute a
-noChange =
-  Attribute identity
+column config =
+  { config | alignment = CS.Column }
 
 
 
