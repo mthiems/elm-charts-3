@@ -1,9 +1,9 @@
 {
     "type": "package",
-    "name": "terezka/elm-charts",
-    "summary": "SVG charts components in Elm.",
+    "name": "mthiems/elm-charts-3",
+    "summary": "Fork of terezka/elm-charts@3.0.0 to fix dependencies.",
     "license": "BSD-3-Clause",
-    "version": "3.0.0",
+    "version": "1.0.0",
     "exposed-modules": [
         "Chart.Attributes",
         "Chart.Events",
