@@ -20,9 +20,9 @@
             "mdgriffith/elm-ui": "1.1.8",
             "myrho/elm-round": "1.0.4",
             "pablohirafuji/elm-syntax-highlight": "3.4.0",
-            "ryannhg/date-format": "2.3.0",
-            "ryannhg/elm-spa": "6.0.0",
-            "terezka/intervals": "2.0.0"
+            "ryan-haskell/date-format": "1.0.0",
+            "ryan-haskell/elm-spa": "1.0.0",
+            "mthiems/intervals": "1.0.0"
         },
         "indirect": {
             "danhandrea/elm-time-extra": "1.1.0",
